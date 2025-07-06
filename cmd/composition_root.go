@@ -52,6 +52,7 @@ func (cr *CompositionRoot) NewApiHandler() servers.StrictServerInterface {
 	handlers, err := http.NewApiHandler(
 		cr.NewStartImportCommandHandler(),
 		cr.NewListPopulationQueryHandler(),
+		cr.NewGetImportJobStatusQueryHandler(),
 	)
 
 	if err != nil {

@@ -12,7 +12,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 
 	"dataset-collections/cmd"
@@ -79,14 +78,6 @@ func getEnv(key string) string {
 		log.Fatalf("Missing env var: %s", key)
 	}
 	return val
-}
-
-func mustParseInt(value string) int {
-	n, err := strconv.Atoi(value)
-	if err != nil {
-		log.Fatalf("Failed to parse int: %v", err)
-	}
-	return n
 }
 
 func createDbIfNotExists(host string, port string, user string,

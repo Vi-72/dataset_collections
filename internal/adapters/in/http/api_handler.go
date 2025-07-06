@@ -7,13 +7,15 @@ import (
 )
 
 type ApiHandler struct {
-	startImportHandler    commands.StartImportCommandHandler
-	listPopulationHandler queries.ListPopulationQueryHandler
+	startImportHandler        commands.StartImportCommandHandler
+	listPopulationHandler     queries.ListPopulationQueryHandler
+	getImportJobStatusHandler queries.GetImportJobStatusQueryHandler
 }
 
 func NewApiHandler(
 	startImportHandler commands.StartImportCommandHandler,
 	listPopulationHandler queries.ListPopulationQueryHandler,
+	getImportJobStatusHandler queries.GetImportJobStatusQueryHandler,
 ) (*ApiHandler, error) {
 	if startImportHandler == nil {
 		return nil, errs.NewValueIsRequiredError("startImportHandler")
@@ -21,8 +23,12 @@ func NewApiHandler(
 	if listPopulationHandler == nil {
 		return nil, errs.NewValueIsRequiredError("listPopulationHandler")
 	}
+	if getImportJobStatusHandler == nil {
+		return nil, errs.NewValueIsRequiredError("getImportJobStatusHandler")
+	}
 	return &ApiHandler{
-		startImportHandler:    startImportHandler,
-		listPopulationHandler: listPopulationHandler,
+		startImportHandler:        startImportHandler,
+		listPopulationHandler:     listPopulationHandler,
+		getImportJobStatusHandler: getImportJobStatusHandler,
 	}, nil
 }

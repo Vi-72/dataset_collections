@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
@@ -21,12 +22,66 @@ import (
 	strictnethttp "github.com/oapi-codegen/runtime/strictmiddleware/nethttp"
 )
 
+// Defines values for ImportJobStatusStatus.
+const (
+	ImportJobStatusStatusCompleted  ImportJobStatusStatus = "completed"
+	ImportJobStatusStatusFailed     ImportJobStatusStatus = "failed"
+	ImportJobStatusStatusInProgress ImportJobStatusStatus = "in_progress"
+	ImportJobStatusStatusPending    ImportJobStatusStatus = "pending"
+)
+
+// Defines values for ImportResultStatus.
+const (
+	ImportResultStatusCompleted  ImportResultStatus = "completed"
+	ImportResultStatusFailed     ImportResultStatus = "failed"
+	ImportResultStatusInProgress ImportResultStatus = "in_progress"
+	ImportResultStatusPending    ImportResultStatus = "pending"
+)
+
+// ImportJobStatus defines model for ImportJobStatus.
+type ImportJobStatus struct {
+	// DurationMs Время выполнения в миллисекундах
+	DurationMs *int `json:"duration_ms,omitempty"`
+
+	// Error Сообщение об ошибке (если есть)
+	Error *string `json:"error,omitempty"`
+
+	// FailedRows Количество строк с ошибками
+	FailedRows *int `json:"failed_rows,omitempty"`
+
+	// FinishedAt Время завершения задачи (если завершена)
+	FinishedAt *time.Time `json:"finished_at,omitempty"`
+
+	// JobId ID задачи импорта
+	JobId string `json:"job_id"`
+
+	// SavedRows Количество сохраненных строк
+	SavedRows *int `json:"saved_rows,omitempty"`
+
+	// StartedAt Время начала задачи
+	StartedAt time.Time `json:"started_at"`
+
+	// Status Статус задачи импорта
+	Status ImportJobStatusStatus `json:"status"`
+
+	// TotalRows Общее количество обработанных строк
+	TotalRows *int `json:"total_rows,omitempty"`
+}
+
+// ImportJobStatusStatus Статус задачи импорта
+type ImportJobStatusStatus string
+
 // ImportResult defines model for ImportResult.
 type ImportResult struct {
-	FailedRows int `json:"failed_rows"`
-	SavedRows  int `json:"saved_rows"`
-	TotalRows  int `json:"total_rows"`
+	// JobId ID созданной задачи импорта
+	JobId string `json:"job_id"`
+
+	// Status Статус задачи импорта
+	Status ImportResultStatus `json:"status"`
 }
+
+// ImportResultStatus Статус задачи импорта
+type ImportResultStatus string
 
 // PopulationEntry defines model for PopulationEntry.
 type PopulationEntry struct {
@@ -41,6 +96,9 @@ type ServerInterface interface {
 	// Запуск импорта данных о населении
 	// (POST /api/v1/import)
 	StartImport(w http.ResponseWriter, r *http.Request)
+	// Получить статус задачи импорта по ID
+	// (GET /api/v1/import/{job_id})
+	GetImportJobStatus(w http.ResponseWriter, r *http.Request, jobId string)
 	// Получить данные о населении по коду страны
 	// (GET /api/v1/population/{country_code})
 	GetPopulationByCountry(w http.ResponseWriter, r *http.Request, countryCode string)
@@ -53,6 +111,12 @@ type Unimplemented struct{}
 // Запуск импорта данных о населении
 // (POST /api/v1/import)
 func (_ Unimplemented) StartImport(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Получить статус задачи импорта по ID
+// (GET /api/v1/import/{job_id})
+func (_ Unimplemented) GetImportJobStatus(w http.ResponseWriter, r *http.Request, jobId string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -76,6 +140,31 @@ func (siw *ServerInterfaceWrapper) StartImport(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.StartImport(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetImportJobStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetImportJobStatus(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "job_id" -------------
+	var jobId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "job_id", chi.URLParam(r, "job_id"), &jobId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "job_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetImportJobStatus(w, r, jobId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -227,6 +316,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/import", wrapper.StartImport)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/import/{job_id}", wrapper.GetImportJobStatus)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/population/{country_code}", wrapper.GetPopulationByCountry)
 	})
 
@@ -253,6 +345,39 @@ type StartImport500Response struct {
 }
 
 func (response StartImport500Response) VisitStartImportResponse(w http.ResponseWriter) error {
+	w.WriteHeader(500)
+	return nil
+}
+
+type GetImportJobStatusRequestObject struct {
+	JobId string `json:"job_id"`
+}
+
+type GetImportJobStatusResponseObject interface {
+	VisitGetImportJobStatusResponse(w http.ResponseWriter) error
+}
+
+type GetImportJobStatus200JSONResponse ImportJobStatus
+
+func (response GetImportJobStatus200JSONResponse) VisitGetImportJobStatusResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetImportJobStatus404Response struct {
+}
+
+func (response GetImportJobStatus404Response) VisitGetImportJobStatusResponse(w http.ResponseWriter) error {
+	w.WriteHeader(404)
+	return nil
+}
+
+type GetImportJobStatus500Response struct {
+}
+
+func (response GetImportJobStatus500Response) VisitGetImportJobStatusResponse(w http.ResponseWriter) error {
 	w.WriteHeader(500)
 	return nil
 }
@@ -295,6 +420,9 @@ type StrictServerInterface interface {
 	// Запуск импорта данных о населении
 	// (POST /api/v1/import)
 	StartImport(ctx context.Context, request StartImportRequestObject) (StartImportResponseObject, error)
+	// Получить статус задачи импорта по ID
+	// (GET /api/v1/import/{job_id})
+	GetImportJobStatus(ctx context.Context, request GetImportJobStatusRequestObject) (GetImportJobStatusResponseObject, error)
 	// Получить данные о населении по коду страны
 	// (GET /api/v1/population/{country_code})
 	GetPopulationByCountry(ctx context.Context, request GetPopulationByCountryRequestObject) (GetPopulationByCountryResponseObject, error)
@@ -353,6 +481,32 @@ func (sh *strictHandler) StartImport(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetImportJobStatus operation middleware
+func (sh *strictHandler) GetImportJobStatus(w http.ResponseWriter, r *http.Request, jobId string) {
+	var request GetImportJobStatusRequestObject
+
+	request.JobId = jobId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetImportJobStatus(ctx, request.(GetImportJobStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetImportJobStatus")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetImportJobStatusResponseObject); ok {
+		if err := validResponse.VisitGetImportJobStatusResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetPopulationByCountry operation middleware
 func (sh *strictHandler) GetPopulationByCountry(w http.ResponseWriter, r *http.Request, countryCode string) {
 	var request GetPopulationByCountryRequestObject
@@ -382,19 +536,25 @@ func (sh *strictHandler) GetPopulationByCountry(w http.ResponseWriter, r *http.R
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/7RU3WrbOhx/FaNzLs4BN3aarhTfbWOMXK2sl6UUzVEbFdvSJCUjlEDSULbRsbIx2O7G",
-	"9gTuaFiaNs4r/PVGQ3LSxEn20YtBcGxJ/4/fx1/HKGQxZwlJlETBMZJhncTYvlZjzoR6SmQjUuabC8aJ",
-	"UJTY3QNMI1LbF+yF/VQtTlCAaKLIIRGo7SKJm7/cV0zh6Kf7bRcJ8rxBBamhYHf+cCGzW+hjz53mYc+O",
-	"SKhMmW3GGxFWlCWPEiVay0BC1jAb+yGrkblOpBI0OTQZpgcSHK8+wG9LrEbaIlj8AcZCHbfY1yRJodYy",
-	"WpORJgfMFKsRGQrK867Q/e2qA5dwrc8dGMANjCHTHX0CqVlNYQQjfaZPHcgcGEGqu9CHa+jDCAYwcMxv",
-	"DBlc655+ma+aPIXAMWSO7uoT3bGrKdyUkIsUVZFpcCaCk7vK2SGiSUMDrEmEzJssl/ySbwhjnCSYUxSg",
-	"SskvVQxsrOpWLQ9z6jXLHrVprJpM2n+jqS1RraEA7SgsVF4LGZolZ4nMBV/313PdE0USG4o5j2hog70j",
-	"mcuYD4J5+1eQAxSgf7zZpHiTMfEKM2L5L/IOn2ZkO/AdUhjrnn5tSDRA7/n+slbwHka6Z6nsW4LPDduZ",
-	"fgUDuIAhpI7RR3fgm32m1kiyEcfY2BvBx0mVLgzvLrZNNiV5ZjbveN6ObdP0IVlB+2OiZlo/aD3Mg6yA",
-	"AsdEESFRsLuE+Kvu6Hf6FC50D4YGV94kXDkwhAwu56ylz5z/qjtPnEp5c3Ot7OCI1/Fa5X9knI8CaxTk",
-	"onxWF2doNm1KNIg7p/HCTLf3ljzj38kzVJFY/s48i1dT+3agsRC4tdJPX2AMA92FzIi7NIGLeuq3JumG",
-	"v7HCZR+mwdA3cfaRwhVcmlB99tfs+fn2JhnoE/1mDoXpYfUFZLFZJ+hewQs5R5KI5tRZDRGhANWV4oHn",
-	"RSzEUZ1JFWz5W/7E1qi91/4RAAD//9O+vij3BgAA",
+	"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",
+	"LRp2hNLB0/rT+tTWpLvb/TsAAP//73hdduwNAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

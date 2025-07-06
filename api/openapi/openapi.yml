@@ -22,6 +22,29 @@ paths:
         '500':
           description: Внутренняя ошибка сервера
 
+  /api/v1/import/{job_id}:
+    get:
+      summary: Получить статус задачи импорта по ID
+      operationId: getImportJobStatus
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID задачи импорта
+      responses:
+        '200':
+          description: Статус задачи импорта
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportJobStatus'
+        '404':
+          description: Задача не найдена
+        '500':
+          description: Внутренняя ошибка сервера
+
   /api/v1/population/{country_code}:
     get:
       summary: Получить данные о населении по коду страны
@@ -52,16 +75,54 @@ components:
     ImportResult:
       type: object
       properties:
+        job_id:
+          type: string
+          description: ID созданной задачи импорта
+        status:
+          type: string
+          description: Статус задачи импорта
+          enum: [pending, in_progress, completed, failed]
+      required:
+        - job_id
+        - status
+
+    ImportJobStatus:
+      type: object
+      properties:
+        job_id:
+          type: string
+          description: ID задачи импорта
+        status:
+          type: string
+          description: Статус задачи импорта
+          enum: [pending, in_progress, completed, failed]
+        started_at:
+          type: string
+          format: date-time
+          description: Время начала задачи
+        finished_at:
+          type: string
+          format: date-time
+          description: Время завершения задачи (если завершена)
         total_rows:
           type: integer
+          description: Общее количество обработанных строк
         saved_rows:
           type: integer
+          description: Количество сохраненных строк
         failed_rows:
           type: integer
+          description: Количество строк с ошибками
+        duration_ms:
+          type: integer
+          description: Время выполнения в миллисекундах
+        error:
+          type: string
+          description: Сообщение об ошибке (если есть)
       required:
-        - total_rows
-        - saved_rows
-        - failed_rows
+        - job_id
+        - status
+        - started_at
 
     PopulationEntry:
       type: object
