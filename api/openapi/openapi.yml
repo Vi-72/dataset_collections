@@ -1,0 +1,88 @@
+openapi: 3.0.3
+info:
+  title: Task Processing Service
+  version: 1.0.0
+  description: HTTP API для создания, получения статуса и удаления I/O-bound задач.
+
+servers:
+  - url: http://localhost:8080/api/v1
+
+paths:
+  /api/v1/tasks:
+    post:
+      summary: Создание новой задачи
+      operationId: createTask
+      responses:
+        '201':
+          description: Задача успешно создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+
+  /api/v1/tasks/{id}:
+    get:
+      summary: Получение полной информации о задаче
+      operationId: getTask
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: Информация о задаче
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '404':
+          description: Задача не найдена
+
+    delete:
+      summary: Удаление задачи
+      operationId: deleteTask
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '204':
+          description: Задача удалена
+        '404':
+          description: Задача не найдена
+
+components:
+  parameters:
+    TaskId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Уникальный идентификатор задачи
+
+  schemas:
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          $ref: '#/components/schemas/Status'
+        created_at:
+          type: string
+          format: date-time
+        duration:
+          type: string
+        result:
+          type: string
+        error:
+          type: string
+      required:
+        - id
+        - status
+        - created_at
+
+    Status:
+      type: string
+      enum:
+        - pending
+        - in_progress
+        - done
+        - failed
