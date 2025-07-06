@@ -2,17 +2,11 @@ package http
 
 import (
 	"context"
-	"dataset-collections/internal/core/application/usecases/commands"
 	"dataset-collections/internal/generated/servers"
 )
 
 func (h *ApiHandler) StartImport(ctx context.Context, _ servers.StartImportRequestObject) (servers.StartImportResponseObject, error) {
-	// Создаем команду с дефолтным URL (так как StartImportRequestObject пустая)
-	cmd := commands.StartImportCommand{
-		SourceURL: "", // Будет использован дефолтный URL из конфига
-	}
-
-	_, err := h.startImportHandler.Handle(ctx, cmd)
+	_, err := h.startImportHandler.Handle(ctx)
 	if err != nil {
 		return servers.StartImport500Response{}, nil
 	}
