@@ -106,4 +106,4 @@ func (p *DataHubCSVParser) parseRow(colMap map[string]int, row []string) (kernel
 	}
 
 	return entry, nil
-} 
+}
