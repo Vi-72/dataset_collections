@@ -5,10 +5,7 @@ import (
 	"dataset-collections/internal/adapters/out/postgres/importjobrepo"
 	"dataset-collections/internal/adapters/out/postgres/populationrepo"
 	"dataset-collections/internal/core/ports"
-	"dataset-collections/internal/pkg/ddd"
 	"dataset-collections/internal/pkg/errs"
-	"errors"
-	"github.com/labstack/gommon/log"
 	"gorm.io/gorm"
 )
 
@@ -17,7 +14,6 @@ var _ ports.UnitOfWork = &UnitOfWork{}
 type UnitOfWork struct {
 	tx                   *gorm.DB
 	db                   *gorm.DB
-	trackedAggregates    []ddd.AggregateRoot
 	populationRepository ports.PopulationRepository
 	importJobRepository  ports.ImportJobRepository
 }
@@ -74,44 +70,10 @@ func (u *UnitOfWork) Commit(ctx context.Context) error {
 		return errs.NewValueIsRequiredError("cannot commit without transaction")
 	}
 
-	committed := false
-	defer func() {
-		if !committed {
-			if err := u.tx.WithContext(ctx).Rollback().Error; err != nil && !errors.Is(err, gorm.ErrInvalidTransaction) {
-				log.Error(err)
-			}
-			u.clearTx()
-		}
-	}()
-
-	if err := u.persistDomainEvents(ctx, u.tx); err != nil {
-		return err
-	}
-
 	if err := u.tx.WithContext(ctx).Commit().Error; err != nil {
 		return err
 	}
-	committed = true
-	u.clearTx()
-
-	return nil
-}
-
-func (u *UnitOfWork) clearTx() {
 	u.tx = nil
-	u.trackedAggregates = nil
-}
-
-func (u *UnitOfWork) Track(agg ddd.AggregateRoot) {
-	u.trackedAggregates = append(u.trackedAggregates, agg)
-}
-
-func (u *UnitOfWork) persistDomainEvents(ctx context.Context, tx *gorm.DB) error {
-	for _, agg := range u.trackedAggregates {
-		// TODO: Implement domain event persistence
-		// For now, just clear the events
-		agg.ClearDomainEvents()
-	}
 	return nil
 }
 
