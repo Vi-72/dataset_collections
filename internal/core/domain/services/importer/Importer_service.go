@@ -4,9 +4,9 @@ import (
 	"context"
 	"dataset-collections/internal/core/domain/model/importjob"
 	"dataset-collections/internal/core/domain/model/kernel"
+	"dataset-collections/internal/core/ports"
 	"errors"
 	"fmt"
-	"io"
 	"time"
 )
 
@@ -16,28 +16,13 @@ type Service interface {
 	Start(ctx context.Context, job *importjob.ImportJob) (*importjob.ImportResult, error)
 }
 
-// Fetcher downloads data from a given source URL.
-type Fetcher interface {
-	Fetch(ctx context.Context, url string) (io.Reader, error)
-}
-
-// Parser parses population data from a stream.
-type Parser interface {
-	Parse(r io.Reader) ([]kernel.PopulationEntry, error)
-}
-
-// Saver persists population entries.
-type Saver interface {
-	Save(ctx context.Context, entries []kernel.PopulationEntry) error
-}
-
 type service struct {
-	fetcher Fetcher
-	parser  Parser
-	saver   Saver
+	fetcher ports.Fetcher
+	parser  ports.Parser
+	saver   ports.Saver
 }
 
-func NewService(fetcher Fetcher, parser Parser, saver Saver) Service {
+func NewService(fetcher ports.Fetcher, parser ports.Parser, saver ports.Saver) Service {
 	return &service{
 		fetcher: fetcher,
 		parser:  parser,
@@ -56,7 +41,7 @@ func (s *service) Start(ctx context.Context, job *importjob.ImportJob) (*importj
 	job.MarkInProgress()
 
 	// Fetch data from external URL
-	reader, err := s.fetcher.Fetch(ctx, job.SourceURL)
+	reader, err := s.fetcher.Fetch(ctx)
 	if err != nil {
 		job.MarkFailed(fmt.Errorf("failed to fetch data: %w", err))
 		return nil, fmt.Errorf("failed to fetch data: %w", err)
@@ -85,7 +70,7 @@ func (s *service) Start(ctx context.Context, job *importjob.ImportJob) (*importj
 		FailedRows: len(entries) - len(valid),
 		DurationMS: int(duration.Milliseconds()),
 	}
-	
+
 	job.MarkCompleted(*result)
 	return result, nil
 }

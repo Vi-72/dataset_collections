@@ -9,7 +9,6 @@ import (
 func DomainToDTO(job importjob.ImportJob) ImportJobDTO {
 	dto := ImportJobDTO{
 		ID:         job.ID.String(),
-		SourceURL:  job.SourceURL,
 		Status:     string(job.Status),
 		StartedAt:  job.StartedAt,
 		FinishedAt: job.FinishedAt,
@@ -35,7 +34,6 @@ func DtoToDomain(dto ImportJobDTO) (importjob.ImportJob, error) {
 
 	job := importjob.ImportJob{
 		ID:        jobID,
-		SourceURL: dto.SourceURL,
 		Status:    importjob.Status(dto.Status),
 		StartedAt: dto.StartedAt,
 	}
@@ -55,4 +53,4 @@ func DtoToDomain(dto ImportJobDTO) (importjob.ImportJob, error) {
 	}
 
 	return job, nil
-} 
+}

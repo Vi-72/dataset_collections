@@ -16,27 +16,24 @@ type Fetcher interface {
 
 // HTTPFetcher реализует Fetcher через стандартную библиотеку http
 type HTTPFetcher struct {
-	client     *http.Client
-	defaultURL string
+	client *http.Client
+	url    string
 }
 
 // NewHTTPFetcher создаёт новый HTTPFetcher с заданным базовым URL (по умолчанию, если не передан URL в Fetch)
-func NewHTTPFetcher(defaultURL string) *HTTPFetcher {
+func NewHTTPFetcher(url string) *HTTPFetcher {
 	return &HTTPFetcher{
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		defaultURL: defaultURL,
+		url: url,
 	}
 }
 
 // Fetch загружает CSV-файл по заданному URL или использует URL по умолчанию
-func (f *HTTPFetcher) Fetch(ctx context.Context, url string) (io.Reader, error) {
-	if url == "" {
-		url = f.defaultURL
-	}
+func (f *HTTPFetcher) Fetch(ctx context.Context) (io.Reader, error) {
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, f.url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -46,12 +43,12 @@ func (f *HTTPFetcher) Fetch(ctx context.Context, url string) (io.Reader, error) 
 
 	resp, err := f.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch URL %s: %w", url, err)
+		return nil, fmt.Errorf("failed to fetch URL %s: %w", f.url, err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		defer resp.Body.Close()
-		return nil, fmt.Errorf("unexpected status code %d from URL %s", resp.StatusCode, url)
+		return nil, fmt.Errorf("unexpected status code %d from URL %s", resp.StatusCode, f.url)
 	}
 
 	return resp.Body, nil

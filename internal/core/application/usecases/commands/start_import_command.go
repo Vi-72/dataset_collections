@@ -35,11 +35,8 @@ func NewStartImportCommandHandler(
 }
 
 func (h *startImportCommandHandler) Handle(ctx context.Context, command StartImportCommand) (StartImportResult, error) {
-	// Используем URL из команды или дефолтный URL
-	sourceURL := command.SourceURL
-
 	// Создаём новый импорт-джоб
-	job := importjob.NewImportJob(sourceURL)
+	job := importjob.NewImportJob()
 
 	// Сохраняем джоб в репозиторий
 	if err := h.unitOfWork.ImportJobRepository().Save(ctx, job); err != nil {

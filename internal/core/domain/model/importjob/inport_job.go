@@ -25,17 +25,15 @@ type ImportResult struct {
 
 type ImportJob struct {
 	ID         uuid.UUID
-	SourceURL  string
 	Status     Status
 	StartedAt  time.Time
 	FinishedAt *time.Time
 	Result     *ImportResult
 }
 
-func NewImportJob(sourceURL string) ImportJob {
+func NewImportJob() ImportJob {
 	return ImportJob{
 		ID:        uuid.New(),
-		SourceURL: sourceURL,
 		Status:    StatusPending,
 		StartedAt: time.Now(),
 	}
