@@ -7,16 +7,12 @@ import (
 	"dataset-collections/internal/core/ports"
 )
 
-type StartImportCommand struct {
-	SourceURL string
-}
-
 type StartImportResult struct {
 	JobID string
 }
 
 type StartImportCommandHandler interface {
-	Handle(ctx context.Context, command StartImportCommand) (StartImportResult, error)
+	Handle(ctx context.Context) (StartImportResult, error)
 }
 
 type startImportCommandHandler struct {
@@ -34,7 +30,7 @@ func NewStartImportCommandHandler(
 	}
 }
 
-func (h *startImportCommandHandler) Handle(ctx context.Context, command StartImportCommand) (StartImportResult, error) {
+func (h *startImportCommandHandler) Handle(ctx context.Context) (StartImportResult, error) {
 	// Создаём новый импорт-джоб
 	job := importjob.NewImportJob()
 

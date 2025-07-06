@@ -6,7 +6,7 @@ import (
 	"dataset-collections/internal/generated/servers"
 )
 
-func (h *ApiHandler) StartImport(ctx context.Context, request servers.StartImportRequestObject) (servers.StartImportResponseObject, error) {
+func (h *ApiHandler) StartImport(ctx context.Context, _ servers.StartImportRequestObject) (servers.StartImportResponseObject, error) {
 	// Создаем команду с дефолтным URL (так как StartImportRequestObject пустая)
 	cmd := commands.StartImportCommand{
 		SourceURL: "", // Будет использован дефолтный URL из конфига

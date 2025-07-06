@@ -47,7 +47,12 @@ func (f *HTTPFetcher) Fetch(ctx context.Context) (io.Reader, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		defer resp.Body.Close()
+		defer func(Body io.ReadCloser) {
+			err := Body.Close()
+			if err != nil {
+
+			}
+		}(resp.Body)
 		return nil, fmt.Errorf("unexpected status code %d from URL %s", resp.StatusCode, f.url)
 	}
 
