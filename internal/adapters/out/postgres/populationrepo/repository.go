@@ -70,3 +70,23 @@ func (r *Repository) GetAll(ctx context.Context) ([]kernel.PopulationEntry, erro
 
 	return entries, nil
 }
+
+func (r *Repository) GetByCountryCode(ctx context.Context, countryCode kernel.CountryCode) ([]kernel.PopulationEntry, error) {
+	var dtos []PopulationDTO
+
+	db := r.tracker.Db()
+	if err := db.WithContext(ctx).Where("country_code = ?", countryCode.Value()).Find(&dtos).Error; err != nil {
+		return nil, errs.WrapInfrastructureError("failed to get population by country code", err)
+	}
+
+	entries := make([]kernel.PopulationEntry, len(dtos))
+	for i, dto := range dtos {
+		entry, err := DtoToDomain(dto)
+		if err != nil {
+			return nil, errs.WrapInfrastructureError("failed to convert dto to domain", err)
+		}
+		entries[i] = entry
+	}
+
+	return entries, nil
+}

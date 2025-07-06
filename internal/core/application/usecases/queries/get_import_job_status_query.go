@@ -4,6 +4,7 @@ import (
 	"context"
 	"dataset-collections/internal/core/domain/model/importjob"
 	"dataset-collections/internal/core/ports"
+	"time"
 )
 
 type GetImportJobStatusQuery struct {
@@ -11,7 +12,15 @@ type GetImportJobStatusQuery struct {
 }
 
 type GetImportJobStatusResult struct {
-	Job *importjob.ImportJob
+	JobID      string
+	Status     importjob.Status
+	StartedAt  time.Time
+	FinishedAt *time.Time
+	TotalRows  int
+	SavedRows  int
+	FailedRows int
+	DurationMS int
+	Error      string
 }
 
 type GetImportJobStatusQueryHandler interface {
@@ -29,14 +38,30 @@ func NewGetImportJobStatusQueryHandler(repo ports.ImportJobRepository) GetImport
 }
 
 func (h *getImportJobStatusQueryHandler) Handle(ctx context.Context, query GetImportJobStatusQuery) (GetImportJobStatusResult, error) {
-	// TODO: Implement actual query logic
-	// This is a placeholder implementation
-	// In a real implementation, you would:
-	// 1. Parse the JobID string to UUID
-	// 2. Call repository to get the job by ID
-	// 3. Return the job status and details
+	// Получаем джобу из репозитория
+	job, err := h.importJobRepository.GetByID(ctx, query.JobID)
+	if err != nil {
+		return GetImportJobStatusResult{}, err
+	}
 
-	return GetImportJobStatusResult{
-		Job: nil, // TODO: Return actual job from repository
-	}, nil
+	// Формируем результат
+	result := GetImportJobStatusResult{
+		JobID:     job.ID.String(),
+		Status:    job.Status,
+		StartedAt: job.StartedAt,
+	}
+
+	if job.FinishedAt != nil {
+		result.FinishedAt = job.FinishedAt
+	}
+
+	if job.Result != nil {
+		result.TotalRows = job.Result.TotalRows
+		result.SavedRows = job.Result.SavedRows
+		result.FailedRows = job.Result.FailedRows
+		result.DurationMS = job.Result.DurationMS
+		result.Error = job.Result.Error
+	}
+
+	return result, nil
 }

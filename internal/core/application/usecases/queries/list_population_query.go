@@ -33,16 +33,37 @@ func NewListPopulationQueryHandler(repo ports.PopulationRepository) ListPopulati
 }
 
 func (h *listPopulationQueryHandler) Handle(ctx context.Context, query ListPopulationQuery) (ListPopulationResult, error) {
-	// TODO: Implement actual query logic
-	// This is a placeholder implementation
-	// In a real implementation, you would:
-	// 1. Add methods to PopulationRepository for querying
-	// 2. Implement filtering by CountryCode and Year
-	// 3. Implement pagination with Limit and Offset
-	// 4. Return actual data from the repository
+	var entries []kernel.PopulationEntry
+	var err error
 
+	// Если указан код страны, получаем данные по нему
+	if query.CountryCode != nil {
+		entries, err = h.populationRepository.GetByCountryCode(ctx, *query.CountryCode)
+		if err != nil {
+			return ListPopulationResult{}, err
+		}
+	} else {
+		// Иначе получаем все данные
+		entries, err = h.populationRepository.GetAll(ctx)
+		if err != nil {
+			return ListPopulationResult{}, err
+		}
+	}
+
+	// Применяем пагинацию
+	total := len(entries)
+	start := query.Offset
+	end := start + query.Limit
+	if end > total {
+		end = total
+	}
+	if start > total {
+		start = total
+	}
+
+	// Возвращаем срезанные данные
 	return ListPopulationResult{
-		Entries: []kernel.PopulationEntry{},
-		Total:   0,
+		Entries: entries[start:end],
+		Total:   total,
 	}, nil
 }
