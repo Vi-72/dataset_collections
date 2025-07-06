@@ -62,13 +62,13 @@ func (cr *CompositionRoot) NewApiHandler() servers.StrictServerInterface {
 }
 
 func (cr *CompositionRoot) NewImporterService() importersvc.Service {
-	hubFetcher := fetcher.NewDataHubFetcher()
-	hubCSVParser := parser.NewDataHubCSVParser()
+	httpFetcher := fetcher.NewHTTPFetcher(cr.configs.PopulationCsvURL)
+	CSVParser := parser.NewDataHubCSVParser()
 	saver := postgres.NewPopulationSaver(cr.NewUnitOfWork())
 
-	return importersvc.NewService(hubFetcher, hubCSVParser, saver)
+	return importersvc.NewService(httpFetcher, CSVParser, saver)
 }
 
 func (cr *CompositionRoot) NewStartImportCommandHandler() commands.StartImportCommandHandler {
-	return commands.NewStartImportCommandHandler(cr.NewUnitOfWork(), cr.NewImporterService(), cr.configs.PopulationCsvURL)
+	return commands.NewStartImportCommandHandler(cr.NewUnitOfWork(), cr.NewImporterService())
 }

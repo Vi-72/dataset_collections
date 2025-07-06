@@ -20,29 +20,23 @@ type StartImportCommandHandler interface {
 }
 
 type startImportCommandHandler struct {
-	unitOfWork       ports.UnitOfWork
-	importerService  importer.Service
-	defaultSourceURL string
+	unitOfWork      ports.UnitOfWork
+	importerService importer.Service
 }
 
 func NewStartImportCommandHandler(
 	unitOfWork ports.UnitOfWork,
 	importerSvc importer.Service,
-	defaultSourceURL string,
 ) StartImportCommandHandler {
 	return &startImportCommandHandler{
-		unitOfWork:       unitOfWork,
-		importerService:  importerSvc,
-		defaultSourceURL: defaultSourceURL,
+		unitOfWork:      unitOfWork,
+		importerService: importerSvc,
 	}
 }
 
 func (h *startImportCommandHandler) Handle(ctx context.Context, command StartImportCommand) (StartImportResult, error) {
 	// Используем URL из команды или дефолтный URL
 	sourceURL := command.SourceURL
-	if sourceURL == "" {
-		sourceURL = h.defaultSourceURL
-	}
 
 	// Создаём новый импорт-джоб
 	job := importjob.NewImportJob(sourceURL)
