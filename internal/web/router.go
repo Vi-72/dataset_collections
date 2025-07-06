@@ -5,8 +5,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"task-processing-service/cmd"
-	"task-processing-service/internal/generated/servers"
+	"dataset-collections/cmd"
+	"dataset-collections/internal/generated/servers"
 )
 
 const apiV1Prefix = "/api/v1"
@@ -59,11 +59,6 @@ func NewRouter(root *cmd.CompositionRoot) http.Handler {
 		`))
 	})
 
-	// Подключаем StrictServer с router-обёрткой
-	strictHandler := root.NewTaskHandler()
-	apiHandler := servers.NewStrictHandler(strictHandler, nil)
-	//apiRouter := servers.HandlerFromMuxWithBaseURL(apiHandler, router, apiV1Prefix)
-
-	apiRouter := servers.HandlerFromMux(apiHandler, router)
-	return apiRouter
+	apiHandler := root.NewApiHandler()
+	return servers.HandlerFromMuxWithBaseURL(apiHandler, router, apiV1Prefix)
 }

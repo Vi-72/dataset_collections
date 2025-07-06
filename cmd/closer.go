@@ -16,9 +16,4 @@ func (cr *CompositionRoot) CloseAll() {
 			log.Printf("error closing resource: %v", err)
 		}
 	}
-
-	if cr.taskRunner != nil {
-		cr.taskRunner.Stop()
-		log.Println("TaskRunner stopped")
-	}
 }

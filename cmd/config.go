@@ -1,7 +1,12 @@
 package cmd
 
 type Config struct {
-	HttpPort            string
-	TaskRunnerWorkers   int
-	TaskRunnerQueueSize int
+	HttpPort         string
+	DbHost           string
+	DbPort           string
+	DbUser           string
+	DbPassword       string
+	DbName           string
+	DbSslMode        string
+	PopulationCsvURL string
 }

@@ -2,8 +2,8 @@ package ports
 
 import (
 	"context"
+	"dataset-collections/internal/pkg/ddd"
 	"gorm.io/gorm"
-	"task-processing-service/internal/pkg/ddd"
 )
 
 type Tracker interface {
@@ -13,4 +13,5 @@ type Tracker interface {
 	Track(agg ddd.AggregateRoot)
 	Begin(ctx context.Context)
 	Commit(ctx context.Context) error
+	Rollback() error
 }

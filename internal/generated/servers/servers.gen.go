@@ -14,7 +14,6 @@ import (
 	"net/url"
 	"path"
 	"strings"
-	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
@@ -22,62 +21,44 @@ import (
 	strictnethttp "github.com/oapi-codegen/runtime/strictmiddleware/nethttp"
 )
 
-// Defines values for Status.
-const (
-	Done       Status = "done"
-	Failed     Status = "failed"
-	InProgress Status = "in_progress"
-	Pending    Status = "pending"
-)
-
-// Status defines model for Status.
-type Status string
-
-// Task defines model for Task.
-type Task struct {
-	CreatedAt time.Time `json:"created_at"`
-	Duration  *string   `json:"duration,omitempty"`
-	Error     *string   `json:"error,omitempty"`
-	Id        string    `json:"id"`
-	Result    *string   `json:"result,omitempty"`
-	Status    Status    `json:"status"`
+// ImportResult defines model for ImportResult.
+type ImportResult struct {
+	FailedRows int `json:"failed_rows"`
+	SavedRows  int `json:"saved_rows"`
+	TotalRows  int `json:"total_rows"`
 }
 
-// TaskId defines model for TaskId.
-type TaskId = string
+// PopulationEntry defines model for PopulationEntry.
+type PopulationEntry struct {
+	CountryCode string `json:"country_code"`
+	CountryName string `json:"country_name"`
+	Population  int    `json:"population"`
+	Year        int    `json:"year"`
+}
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// Создание новой задачи
-	// (POST /api/v1/tasks)
-	CreateTask(w http.ResponseWriter, r *http.Request)
-	// Удаление задачи
-	// (DELETE /api/v1/tasks/{id})
-	DeleteTask(w http.ResponseWriter, r *http.Request, id TaskId)
-	// Получение полной информации о задаче
-	// (GET /api/v1/tasks/{id})
-	GetTask(w http.ResponseWriter, r *http.Request, id TaskId)
+	// Запуск импорта данных о населении
+	// (POST /api/v1/import)
+	StartImport(w http.ResponseWriter, r *http.Request)
+	// Получить данные о населении по коду страны
+	// (GET /api/v1/population/{country_code})
+	GetPopulationByCountry(w http.ResponseWriter, r *http.Request, countryCode string)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
 
-// Создание новой задачи
-// (POST /api/v1/tasks)
-func (_ Unimplemented) CreateTask(w http.ResponseWriter, r *http.Request) {
+// Запуск импорта данных о населении
+// (POST /api/v1/import)
+func (_ Unimplemented) StartImport(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Удаление задачи
-// (DELETE /api/v1/tasks/{id})
-func (_ Unimplemented) DeleteTask(w http.ResponseWriter, r *http.Request, id TaskId) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Получение полной информации о задаче
-// (GET /api/v1/tasks/{id})
-func (_ Unimplemented) GetTask(w http.ResponseWriter, r *http.Request, id TaskId) {
+// Получить данные о населении по коду страны
+// (GET /api/v1/population/{country_code})
+func (_ Unimplemented) GetPopulationByCountry(w http.ResponseWriter, r *http.Request, countryCode string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -90,11 +71,11 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
-// CreateTask operation middleware
-func (siw *ServerInterfaceWrapper) CreateTask(w http.ResponseWriter, r *http.Request) {
+// StartImport operation middleware
+func (siw *ServerInterfaceWrapper) StartImport(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateTask(w, r)
+		siw.Handler.StartImport(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -104,47 +85,22 @@ func (siw *ServerInterfaceWrapper) CreateTask(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
-// DeleteTask operation middleware
-func (siw *ServerInterfaceWrapper) DeleteTask(w http.ResponseWriter, r *http.Request) {
+// GetPopulationByCountry operation middleware
+func (siw *ServerInterfaceWrapper) GetPopulationByCountry(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
-	// ------------- Path parameter "id" -------------
-	var id TaskId
+	// ------------- Path parameter "country_code" -------------
+	var countryCode string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "country_code", chi.URLParam(r, "country_code"), &countryCode, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "country_code", Err: err})
 		return
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeleteTask(w, r, id)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetTask operation middleware
-func (siw *ServerInterfaceWrapper) GetTask(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "id" -------------
-	var id TaskId
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetTask(w, r, id)
+		siw.Handler.GetPopulationByCountry(w, r, countryCode)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -268,94 +224,80 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v1/tasks", wrapper.CreateTask)
+		r.Post(options.BaseURL+"/api/v1/import", wrapper.StartImport)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/v1/tasks/{id}", wrapper.DeleteTask)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v1/tasks/{id}", wrapper.GetTask)
+		r.Get(options.BaseURL+"/api/v1/population/{country_code}", wrapper.GetPopulationByCountry)
 	})
 
 	return r
 }
 
-type CreateTaskRequestObject struct {
+type StartImportRequestObject struct {
 }
 
-type CreateTaskResponseObject interface {
-	VisitCreateTaskResponse(w http.ResponseWriter) error
+type StartImportResponseObject interface {
+	VisitStartImportResponse(w http.ResponseWriter) error
 }
 
-type CreateTask201JSONResponse Task
+type StartImport202JSONResponse ImportResult
 
-func (response CreateTask201JSONResponse) VisitCreateTaskResponse(w http.ResponseWriter) error {
+func (response StartImport202JSONResponse) VisitStartImportResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
+	w.WriteHeader(202)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type DeleteTaskRequestObject struct {
-	Id TaskId `json:"id"`
+type StartImport500Response struct {
 }
 
-type DeleteTaskResponseObject interface {
-	VisitDeleteTaskResponse(w http.ResponseWriter) error
-}
-
-type DeleteTask204Response struct {
-}
-
-func (response DeleteTask204Response) VisitDeleteTaskResponse(w http.ResponseWriter) error {
-	w.WriteHeader(204)
+func (response StartImport500Response) VisitStartImportResponse(w http.ResponseWriter) error {
+	w.WriteHeader(500)
 	return nil
 }
 
-type DeleteTask404Response struct {
+type GetPopulationByCountryRequestObject struct {
+	CountryCode string `json:"country_code"`
 }
 
-func (response DeleteTask404Response) VisitDeleteTaskResponse(w http.ResponseWriter) error {
-	w.WriteHeader(404)
-	return nil
+type GetPopulationByCountryResponseObject interface {
+	VisitGetPopulationByCountryResponse(w http.ResponseWriter) error
 }
 
-type GetTaskRequestObject struct {
-	Id TaskId `json:"id"`
-}
+type GetPopulationByCountry200JSONResponse []PopulationEntry
 
-type GetTaskResponseObject interface {
-	VisitGetTaskResponse(w http.ResponseWriter) error
-}
-
-type GetTask200JSONResponse Task
-
-func (response GetTask200JSONResponse) VisitGetTaskResponse(w http.ResponseWriter) error {
+func (response GetPopulationByCountry200JSONResponse) VisitGetPopulationByCountryResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetTask404Response struct {
+type GetPopulationByCountry404Response struct {
 }
 
-func (response GetTask404Response) VisitGetTaskResponse(w http.ResponseWriter) error {
+func (response GetPopulationByCountry404Response) VisitGetPopulationByCountryResponse(w http.ResponseWriter) error {
 	w.WriteHeader(404)
+	return nil
+}
+
+type GetPopulationByCountry500Response struct {
+}
+
+func (response GetPopulationByCountry500Response) VisitGetPopulationByCountryResponse(w http.ResponseWriter) error {
+	w.WriteHeader(500)
 	return nil
 }
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
-	// Создание новой задачи
-	// (POST /api/v1/tasks)
-	CreateTask(ctx context.Context, request CreateTaskRequestObject) (CreateTaskResponseObject, error)
-	// Удаление задачи
-	// (DELETE /api/v1/tasks/{id})
-	DeleteTask(ctx context.Context, request DeleteTaskRequestObject) (DeleteTaskResponseObject, error)
-	// Получение полной информации о задаче
-	// (GET /api/v1/tasks/{id})
-	GetTask(ctx context.Context, request GetTaskRequestObject) (GetTaskResponseObject, error)
+	// Запуск импорта данных о населении
+	// (POST /api/v1/import)
+	StartImport(ctx context.Context, request StartImportRequestObject) (StartImportResponseObject, error)
+	// Получить данные о населении по коду страны
+	// (GET /api/v1/population/{country_code})
+	GetPopulationByCountry(ctx context.Context, request GetPopulationByCountryRequestObject) (GetPopulationByCountryResponseObject, error)
 }
 
 type StrictHandlerFunc = strictnethttp.StrictHTTPHandlerFunc
@@ -387,23 +329,23 @@ type strictHandler struct {
 	options     StrictHTTPServerOptions
 }
 
-// CreateTask operation middleware
-func (sh *strictHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
-	var request CreateTaskRequestObject
+// StartImport operation middleware
+func (sh *strictHandler) StartImport(w http.ResponseWriter, r *http.Request) {
+	var request StartImportRequestObject
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.CreateTask(ctx, request.(CreateTaskRequestObject))
+		return sh.ssi.StartImport(ctx, request.(StartImportRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CreateTask")
+		handler = middleware(handler, "StartImport")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(CreateTaskResponseObject); ok {
-		if err := validResponse.VisitCreateTaskResponse(w); err != nil {
+	} else if validResponse, ok := response.(StartImportResponseObject); ok {
+		if err := validResponse.VisitStartImportResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -411,51 +353,25 @@ func (sh *strictHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// DeleteTask operation middleware
-func (sh *strictHandler) DeleteTask(w http.ResponseWriter, r *http.Request, id TaskId) {
-	var request DeleteTaskRequestObject
+// GetPopulationByCountry operation middleware
+func (sh *strictHandler) GetPopulationByCountry(w http.ResponseWriter, r *http.Request, countryCode string) {
+	var request GetPopulationByCountryRequestObject
 
-	request.Id = id
+	request.CountryCode = countryCode
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.DeleteTask(ctx, request.(DeleteTaskRequestObject))
+		return sh.ssi.GetPopulationByCountry(ctx, request.(GetPopulationByCountryRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "DeleteTask")
+		handler = middleware(handler, "GetPopulationByCountry")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(DeleteTaskResponseObject); ok {
-		if err := validResponse.VisitDeleteTaskResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// GetTask operation middleware
-func (sh *strictHandler) GetTask(w http.ResponseWriter, r *http.Request, id TaskId) {
-	var request GetTaskRequestObject
-
-	request.Id = id
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetTask(ctx, request.(GetTaskRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetTask")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetTaskResponseObject); ok {
-		if err := validResponse.VisitGetTaskResponse(w); err != nil {
+	} else if validResponse, ok := response.(GetPopulationByCountryResponseObject); ok {
+		if err := validResponse.VisitGetPopulationByCountryResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -466,19 +382,19 @@ func (sh *strictHandler) GetTask(w http.ResponseWriter, r *http.Request, id Task
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/7SVz07bShTGX8U69y5NHC4skHdX90r3sioS7BBCg32SDNged2YcCUWWyh+VSq3Est1V",
-	"FS9gVUSEpgmvcOaNqhkH4pCo3dCd4znneM7v+87JACKR5iLDTCsIB5AzyVLUKN2vPaZOtmP7FKOKJM81",
-	"FxmEQDc0oRF9o4rG5gNNzHu692hEtzSkiTmnkbmsj805Tc0bj+6ooluqzBWNwAdua+RM98CHjKUIIfAY",
-	"fJD4uuASYwi1LNAHFfUwZfbz+jS3UUpLnnWhLMvHQ3fNXc104Z4wK1II9yHHLLaR9luHuRRdiUqBD7HI",
-	"EHzoMJ5gDAf+88K+a9mBkCJHqTm6upFEpjE+ZNr+6giZ2ieImcY1zVNbc6lSXEhW8xosH6KUQq484fHK",
-	"1xJVkeiVR+qp/T8ldiCEP4K5qMGMUzCDVJZNzvs1+FkFv9nnHI44OsZI19R51hHLfvh/b2/H+3tn26Nb",
-	"Gptrz5zRlO6s4tYn5tr36IGmNDYX5spaxL7zzJk5tw4xF+aMKo9GnrlwKeOnkO3g1dqRKLK44aCWZc11",
-	"Ym9mxfJ2pIhQKZ51vV2UfR5ZNfooVX239Va71baYRI4ZyzmEsNFqtzbAdxZ03AKW86C/HmimTuoxEMqx",
-	"th5wItopgH8cHecQJ0guMlX746/2urOJyDRmLpPlecIjlxscq9oFcz//TChX38F+NnQfn4ao8hy0Bxqa",
-	"dzSh6SLwyomsijRl8tQmfmmqQUPPptBXmtqhbU6mTVtAEQx4XNZyJ6hxmci/7v2MSHN37K/ucR4SzHZL",
-	"ebCEcnPFwlnsvWGTykq7+cscmtR9V3Rfb6llSjdN89noBTQ+dHGFJf5D/cLdt3+/kT7RxFzaxUzfqTJv",
-	"3ajRtNnw8MWofl6cexvvVoHzoPvTeHYXGi3fxdVE2X+EW8gEQuhpnYdBkIiIJT2hdLjV3mrP/AvlQfkj",
-	"AAD//y2YBzLcBgAA",
+	"H4sIAAAAAAAC/7RU3WrbOhx/FaNzLs4BN3aarhTfbWOMXK2sl6UUzVEbFdvSJCUjlEDSULbRsbIx2O7G",
+	"9gTuaFiaNs4r/PVGQ3LSxEn20YtBcGxJ/4/fx1/HKGQxZwlJlETBMZJhncTYvlZjzoR6SmQjUuabC8aJ",
+	"UJTY3QNMI1LbF+yF/VQtTlCAaKLIIRGo7SKJm7/cV0zh6Kf7bRcJ8rxBBamhYHf+cCGzW+hjz53mYc+O",
+	"SKhMmW3GGxFWlCWPEiVay0BC1jAb+yGrkblOpBI0OTQZpgcSHK8+wG9LrEbaIlj8AcZCHbfY1yRJodYy",
+	"WpORJgfMFKsRGQrK867Q/e2qA5dwrc8dGMANjCHTHX0CqVlNYQQjfaZPHcgcGEGqu9CHa+jDCAYwcMxv",
+	"DBlc655+ma+aPIXAMWSO7uoT3bGrKdyUkIsUVZFpcCaCk7vK2SGiSUMDrEmEzJssl/ySbwhjnCSYUxSg",
+	"SskvVQxsrOpWLQ9z6jXLHrVprJpM2n+jqS1RraEA7SgsVF4LGZolZ4nMBV/313PdE0USG4o5j2hog70j",
+	"mcuYD4J5+1eQAxSgf7zZpHiTMfEKM2L5L/IOn2ZkO/AdUhjrnn5tSDRA7/n+slbwHka6Z6nsW4LPDduZ",
+	"fgUDuIAhpI7RR3fgm32m1kiyEcfY2BvBx0mVLgzvLrZNNiV5ZjbveN6ObdP0IVlB+2OiZlo/aD3Mg6yA",
+	"AsdEESFRsLuE+Kvu6Hf6FC50D4YGV94kXDkwhAwu56ylz5z/qjtPnEp5c3Ot7OCI1/Fa5X9knI8CaxTk",
+	"onxWF2doNm1KNIg7p/HCTLf3ljzj38kzVJFY/s48i1dT+3agsRC4tdJPX2AMA92FzIi7NIGLeuq3JumG",
+	"v7HCZR+mwdA3cfaRwhVcmlB99tfs+fn2JhnoE/1mDoXpYfUFZLFZJ+hewQs5R5KI5tRZDRGhANWV4oHn",
+	"RSzEUZ1JFWz5W/7E1qi91/4RAAD//9O+vij3BgAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

@@ -1,88 +1,81 @@
 openapi: 3.0.3
 info:
-  title: Task Processing Service
+  title: Population Import Service
   version: 1.0.0
-  description: HTTP API для создания, получения статуса и удаления I/O-bound задач.
+  description: API для импорта данных о населении и получения данных по странам.
 
 servers:
   - url: http://localhost:8080/api/v1
 
 paths:
-  /api/v1/tasks:
+  /api/v1/import:
     post:
-      summary: Создание новой задачи
-      operationId: createTask
+      summary: Запуск импорта данных о населении
+      operationId: startImport
       responses:
-        '201':
-          description: Задача успешно создана
+        '202':
+          description: Импорт запущен
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Task'
+                $ref: '#/components/schemas/ImportResult'
+        '500':
+          description: Внутренняя ошибка сервера
 
-  /api/v1/tasks/{id}:
+  /api/v1/population/{country_code}:
     get:
-      summary: Получение полной информации о задаче
-      operationId: getTask
+      summary: Получить данные о населении по коду страны
+      operationId: getPopulationByCountry
       parameters:
-        - $ref: '#/components/parameters/TaskId'
+        - name: country_code
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Трёхбуквенный код страны (ISO 3166-1 alpha-3)
       responses:
         '200':
-          description: Информация о задаче
+          description: Список данных по населению
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Task'
+                type: array
+                items:
+                  $ref: '#/components/schemas/PopulationEntry'
         '404':
-          description: Задача не найдена
-
-    delete:
-      summary: Удаление задачи
-      operationId: deleteTask
-      parameters:
-        - $ref: '#/components/parameters/TaskId'
-      responses:
-        '204':
-          description: Задача удалена
-        '404':
-          description: Задача не найдена
+          description: Данные не найдены
+        '500':
+          description: Внутренняя ошибка сервера
 
 components:
-  parameters:
-    TaskId:
-      name: id
-      in: path
-      required: true
-      schema:
-        type: string
-      description: Уникальный идентификатор задачи
-
   schemas:
-    Task:
+    ImportResult:
       type: object
       properties:
-        id:
-          type: string
-        status:
-          $ref: '#/components/schemas/Status'
-        created_at:
-          type: string
-          format: date-time
-        duration:
-          type: string
-        result:
-          type: string
-        error:
-          type: string
+        total_rows:
+          type: integer
+        saved_rows:
+          type: integer
+        failed_rows:
+          type: integer
       required:
-        - id
-        - status
-        - created_at
+        - total_rows
+        - saved_rows
+        - failed_rows
 
-    Status:
-      type: string
-      enum:
-        - pending
-        - in_progress
-        - done
-        - failed
+    PopulationEntry:
+      type: object
+      properties:
+        country_name:
+          type: string
+        country_code:
+          type: string
+        year:
+          type: integer
+        population:
+          type: integer
+      required:
+        - country_name
+        - country_code
+        - year
+        - population

@@ -1,6 +1,6 @@
 package populationrepo
 
-import "task-processing-service/internal/core/domain/model/kernel"
+import "dataset-collections/internal/core/domain/model/kernel"
 
 func DomainToDTO(entry kernel.PopulationEntry) PopulationDTO {
 	return PopulationDTO{

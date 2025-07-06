@@ -2,10 +2,10 @@ package postgres
 
 import (
 	"context"
-	"task-processing-service/internal/adapters/out/postgres/populationrepo"
-	"task-processing-service/internal/core/ports"
-	"task-processing-service/internal/pkg/ddd"
-	"task-processing-service/internal/pkg/errs"
+	"dataset-collections/internal/adapters/out/postgres/populationrepo"
+	"dataset-collections/internal/core/ports"
+	"dataset-collections/internal/pkg/ddd"
+	"dataset-collections/internal/pkg/errs"
 	"errors"
 	"github.com/labstack/gommon/log"
 	"gorm.io/gorm"

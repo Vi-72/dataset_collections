@@ -1,80 +1,101 @@
 package importer
 
 import (
-	"encoding/csv"
+	"context"
+	"dataset-collections/internal/core/domain/model/importjob"
+	"dataset-collections/internal/core/domain/model/kernel"
 	"errors"
+	"fmt"
 	"io"
-	"strconv"
-	"task-processing-service/internal/core/domain/model/kernel"
+	"time"
 )
 
-var ErrInvalidRow = errors.New("invalid CSV row: expected 4 fields")
-
+// Service defines the interface for starting a population import
+// by fetching, parsing and saving data.
 type Service interface {
-	ParseCSV(r io.Reader) ([]kernel.PopulationEntry, error)
+	Start(ctx context.Context, job *importjob.ImportJob) (*importjob.ImportResult, error)
 }
 
-type importerService struct{}
-
-func NewImporterService() Service {
-	return &importerService{}
+// Fetcher downloads data from a given source URL.
+type Fetcher interface {
+	Fetch(ctx context.Context, url string) (io.Reader, error)
 }
 
-func (s *importerService) ParseCSV(r io.Reader) ([]kernel.PopulationEntry, error) {
-	reader := csv.NewReader(r)
-	reader.TrimLeadingSpace = true
-
-	// Чтение заголовков
-	_, err := reader.Read()
-	if err != nil {
-		return nil, err
-	}
-
-	var entries []kernel.PopulationEntry
-
-	for {
-		record, err := reader.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return nil, err
-		}
-
-		entry, err := parseRow(record)
-		if err != nil {
-			continue // можно логировать
-		}
-		entries = append(entries, entry)
-	}
-
-	return entries, nil
+// Parser parses population data from a stream.
+type Parser interface {
+	Parse(r io.Reader) ([]kernel.PopulationEntry, error)
 }
 
-func parseRow(fields []string) (kernel.PopulationEntry, error) {
-	if len(fields) != 4 {
-		return kernel.PopulationEntry{}, ErrInvalidRow
+// Saver persists population entries.
+type Saver interface {
+	Save(ctx context.Context, entries []kernel.PopulationEntry) error
+}
+
+type service struct {
+	fetcher Fetcher
+	parser  Parser
+	saver   Saver
+}
+
+func NewService(fetcher Fetcher, parser Parser, saver Saver) Service {
+	return &service{
+		fetcher: fetcher,
+		parser:  parser,
+		saver:   saver,
+	}
+}
+
+func (s *service) Start(ctx context.Context, job *importjob.ImportJob) (*importjob.ImportResult, error) {
+	if job == nil {
+		return nil, errors.New("import job is nil")
 	}
 
-	yearInt, err := strconv.Atoi(fields[2])
+	startTime := time.Now()
+
+	// Mark job as in progress
+	job.MarkInProgress()
+
+	// Fetch data from external URL
+	reader, err := s.fetcher.Fetch(ctx, job.SourceURL)
 	if err != nil {
-		return kernel.PopulationEntry{}, err
+		job.MarkFailed(fmt.Errorf("failed to fetch data: %w", err))
+		return nil, fmt.Errorf("failed to fetch data: %w", err)
 	}
 
-	populationInt, err := strconv.ParseInt(fields[3], 10, 64)
+	// Parse the data
+	entries, err := s.parser.Parse(reader)
 	if err != nil {
-		return kernel.PopulationEntry{}, err
+		job.MarkFailed(fmt.Errorf("failed to parse data: %w", err))
+		return nil, fmt.Errorf("failed to parse data: %w", err)
 	}
 
-	code, err := kernel.NewCountryCode(fields[1])
-	if err != nil {
-		return kernel.PopulationEntry{}, err
+	// Filter valid entries
+	valid := s.filterValid(entries)
+
+	// Save valid entries
+	if err := s.saver.Save(ctx, valid); err != nil {
+		job.MarkFailed(fmt.Errorf("failed to save data: %w", err))
+		return nil, fmt.Errorf("failed to save data: %w", err)
 	}
 
-	year, err := kernel.NewYear(yearInt)
-	if err != nil {
-		return kernel.PopulationEntry{}, err
+	duration := time.Since(startTime)
+	result := &importjob.ImportResult{
+		TotalRows:  len(entries),
+		SavedRows:  len(valid),
+		FailedRows: len(entries) - len(valid),
+		DurationMS: int(duration.Milliseconds()),
 	}
+	
+	job.MarkCompleted(*result)
+	return result, nil
+}
 
-	return kernel.NewPopulationEntry(fields[0], code, year, populationInt)
+func (s *service) filterValid(entries []kernel.PopulationEntry) []kernel.PopulationEntry {
+	var valid []kernel.PopulationEntry
+	for _, e := range entries {
+		if e.Population() >= 0 && e.Year().Value() >= 1800 {
+			valid = append(valid, e)
+		}
+	}
+	return valid
 }

@@ -2,7 +2,7 @@ package ports
 
 import (
 	"context"
-	"task-processing-service/internal/core/domain/model/kernel"
+	"dataset-collections/internal/core/domain/model/kernel"
 )
 
 type PopulationRepository interface {
