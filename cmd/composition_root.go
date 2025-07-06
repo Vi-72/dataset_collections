@@ -40,25 +40,12 @@ func (cr *CompositionRoot) PopulationRepository() ports.PopulationRepository {
 	return cr.NewUnitOfWork().PopulationRepository()
 }
 
-func (cr *CompositionRoot) NewImporterService() importersvc.Service {
-	hubFetcher := fetcher.NewDataHubFetcher()
-	hubCSVParser := parser.NewDataHubCSVParser()
-	saver := postgres.NewPopulationSaver(cr.NewUnitOfWork())
-
-	return importersvc.NewService(hubFetcher, hubCSVParser, saver)
-}
-
-func (cr *CompositionRoot) NewStartImportCommandHandler() commands.StartImportCommandHandler {
-	defaultSourceURL := "https://datahub.io/core/population/_r/-/data/population.csv"
-	return commands.NewStartImportCommandHandler(nil, cr.NewImporterService(), defaultSourceURL)
-}
-
 func (cr *CompositionRoot) NewListPopulationQueryHandler() queries.ListPopulationQueryHandler {
 	return queries.NewListPopulationQueryHandler(cr.PopulationRepository())
 }
 
 func (cr *CompositionRoot) NewGetImportJobStatusQueryHandler() queries.GetImportJobStatusQueryHandler {
-	return queries.NewGetImportJobStatusQueryHandler(nil)
+	return queries.NewGetImportJobStatusQueryHandler(cr.NewUnitOfWork().ImportJobRepository())
 }
 
 func (cr *CompositionRoot) NewApiHandler() servers.StrictServerInterface {
@@ -72,4 +59,16 @@ func (cr *CompositionRoot) NewApiHandler() servers.StrictServerInterface {
 	}
 
 	return handlers
+}
+
+func (cr *CompositionRoot) NewImporterService() importersvc.Service {
+	hubFetcher := fetcher.NewDataHubFetcher()
+	hubCSVParser := parser.NewDataHubCSVParser()
+	saver := postgres.NewPopulationSaver(cr.NewUnitOfWork())
+
+	return importersvc.NewService(hubFetcher, hubCSVParser, saver)
+}
+
+func (cr *CompositionRoot) NewStartImportCommandHandler() commands.StartImportCommandHandler {
+	return commands.NewStartImportCommandHandler(cr.NewUnitOfWork(), cr.NewImporterService(), cr.configs.PopulationCsvURL)
 }

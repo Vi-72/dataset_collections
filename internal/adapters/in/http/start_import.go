@@ -11,15 +11,15 @@ func (h *ApiHandler) StartImport(ctx context.Context, request servers.StartImpor
 	cmd := commands.StartImportCommand{
 		SourceURL: "", // Будет использован дефолтный URL из конфига
 	}
-	
-	result, err := h.startImportHandler.Handle(ctx, cmd)
+
+	_, err := h.startImportHandler.Handle(ctx, cmd)
 	if err != nil {
-		return servers.StartImport500JSONResponse{
-			Error: "failed to start import: " + err.Error(),
-		}, nil
+		return servers.StartImport500Response{}, nil
 	}
 
 	return servers.StartImport202JSONResponse{
-		JobId: result.JobID,
+		FailedRows: 0,
+		SavedRows:  0,
+		TotalRows:  0,
 	}, nil
 }

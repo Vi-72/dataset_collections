@@ -11,9 +11,7 @@ func (h *ApiHandler) GetPopulationByCountry(ctx context.Context, request servers
 	// Создаем CountryCode из строки
 	countryCode, err := kernel.NewCountryCode(request.CountryCode)
 	if err != nil {
-		return servers.GetPopulationByCountry400JSONResponse{
-			Error: "invalid country code: " + err.Error(),
-		}, nil
+		return servers.GetPopulationByCountry404Response{}, nil
 	}
 
 	query := queries.ListPopulationQuery{
@@ -21,12 +19,10 @@ func (h *ApiHandler) GetPopulationByCountry(ctx context.Context, request servers
 		Limit:       100,
 		Offset:      0,
 	}
-	
+
 	result, err := h.listPopulationHandler.Handle(ctx, query)
 	if err != nil {
-		return servers.GetPopulationByCountry500JSONResponse{
-			Error: err.Error(),
-		}, nil
+		return servers.GetPopulationByCountry500Response{}, nil
 	}
 
 	// Преобразуем доменные объекты в DTO для ответа
@@ -36,9 +32,9 @@ func (h *ApiHandler) GetPopulationByCountry(ctx context.Context, request servers
 			CountryName: entry.CountryName(),
 			CountryCode: entry.CountryCode().Value(),
 			Year:        entry.Year().Value(),
-			Value:       int(entry.Population()),
+			Population:  int(entry.Population()),
 		})
 	}
 
 	return servers.GetPopulationByCountry200JSONResponse(response), nil
-} 
+}

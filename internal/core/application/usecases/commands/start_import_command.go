@@ -7,6 +7,10 @@ import (
 	"dataset-collections/internal/core/ports"
 )
 
+type StartImportCommand struct {
+	SourceURL string
+}
+
 type StartImportResult struct {
 	JobID string
 }
@@ -16,20 +20,20 @@ type StartImportCommandHandler interface {
 }
 
 type startImportCommandHandler struct {
-	importJobRepository ports.ImportJobRepository
-	importerService     importer.Service
-	defaultSourceURL    string
+	unitOfWork       ports.UnitOfWork
+	importerService  importer.Service
+	defaultSourceURL string
 }
 
 func NewStartImportCommandHandler(
-	repo ports.ImportJobRepository,
+	unitOfWork ports.UnitOfWork,
 	importerSvc importer.Service,
 	defaultSourceURL string,
 ) StartImportCommandHandler {
 	return &startImportCommandHandler{
-		importJobRepository: repo,
-		importerService:     importerSvc,
-		defaultSourceURL:    defaultSourceURL,
+		unitOfWork:       unitOfWork,
+		importerService:  importerSvc,
+		defaultSourceURL: defaultSourceURL,
 	}
 }
 
@@ -44,18 +48,19 @@ func (h *startImportCommandHandler) Handle(ctx context.Context, command StartImp
 	job := importjob.NewImportJob(sourceURL)
 
 	// Сохраняем джоб в репозиторий
-	if err := h.importJobRepository.Save(ctx, *job); err != nil {
+	if err := h.unitOfWork.ImportJobRepository().Save(ctx, job); err != nil {
 		return StartImportResult{}, err
 	}
 
 	// Запускаем импорт в фоне
 	go func() {
-		_, err := h.importerService.Start(context.Background(), job)
+		_, err := h.importerService.Start(context.Background(), &job)
 		if err != nil {
 			// TODO: логировать ошибку импорта
 		}
 
-		if updateErr := h.importJobRepository.Update(context.Background(), *job); updateErr != nil {
+		// Обновляем статус джоба после импорта
+		if updateErr := h.unitOfWork.ImportJobRepository().Update(context.Background(), job); updateErr != nil {
 			// TODO: логировать ошибку обновления
 		}
 	}()

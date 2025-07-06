@@ -59,6 +59,10 @@ func NewRouter(root *cmd.CompositionRoot) http.Handler {
 		`))
 	})
 
-	apiHandler := root.NewApiHandler()
-	return servers.HandlerFromMuxWithBaseURL(apiHandler, router, apiV1Prefix)
+	strictHandler := root.NewApiHandler()
+	apiHandler := servers.NewStrictHandler(strictHandler, nil)
+	apiRouter := servers.HandlerFromMuxWithBaseURL(apiHandler, router, apiV1Prefix)
+
+	apiRouter = servers.HandlerFromMux(apiHandler, router)
+	return apiRouter
 }

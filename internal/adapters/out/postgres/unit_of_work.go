@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"dataset-collections/internal/adapters/out/postgres/importjobrepo"
 	"dataset-collections/internal/adapters/out/postgres/populationrepo"
 	"dataset-collections/internal/core/ports"
 	"dataset-collections/internal/pkg/ddd"
@@ -18,6 +19,7 @@ type UnitOfWork struct {
 	db                   *gorm.DB
 	trackedAggregates    []ddd.AggregateRoot
 	populationRepository ports.PopulationRepository
+	importJobRepository  ports.ImportJobRepository
 }
 
 func NewUnitOfWork(db *gorm.DB) (ports.UnitOfWork, error) {
@@ -32,6 +34,12 @@ func NewUnitOfWork(db *gorm.DB) (ports.UnitOfWork, error) {
 		return nil, err
 	}
 	uow.populationRepository = popRepo
+
+	importJobRepo, err := importjobrepo.NewRepository(uow)
+	if err != nil {
+		return nil, err
+	}
+	uow.importJobRepository = importJobRepo
 
 	return uow, nil
 }
@@ -108,7 +116,10 @@ func (u *UnitOfWork) persistDomainEvents(ctx context.Context, tx *gorm.DB) error
 }
 
 // Геттеры репозиториев
-
 func (u *UnitOfWork) PopulationRepository() ports.PopulationRepository {
 	return u.populationRepository
+}
+
+func (u *UnitOfWork) ImportJobRepository() ports.ImportJobRepository {
+	return u.importJobRepository
 }

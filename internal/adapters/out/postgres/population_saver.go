@@ -5,7 +5,6 @@ import (
 	"dataset-collections/internal/core/domain/model/kernel"
 	"dataset-collections/internal/core/ports"
 	"dataset-collections/internal/pkg/errs"
-	"gorm.io/gorm"
 )
 
 // PopulationSaver сохраняет данные о населении в базу данных
@@ -49,4 +48,4 @@ func (s *PopulationSaver) Save(ctx context.Context, entries []kernel.PopulationE
 	}
 
 	return nil
-} 
+}
