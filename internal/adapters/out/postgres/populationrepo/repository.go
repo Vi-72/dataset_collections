@@ -36,7 +36,7 @@ func (r *Repository) SaveAll(ctx context.Context, entries []kernel.PopulationEnt
 		dtos[i] = DomainToDTO(e)
 	}
 
-	if err := tx.WithContext(ctx).Create(&dtos).Error; err != nil {
+	if err := tx.WithContext(ctx).Save(&dtos).Error; err != nil {
 		if !isInTransaction {
 			_ = r.tracker.Rollback()
 		}
@@ -49,4 +49,24 @@ func (r *Repository) SaveAll(ctx context.Context, entries []kernel.PopulationEnt
 		}
 	}
 	return nil
+}
+
+func (r *Repository) GetAll(ctx context.Context) ([]kernel.PopulationEntry, error) {
+	var dtos []PopulationDTO
+
+	db := r.tracker.Db()
+	if err := db.WithContext(ctx).Find(&dtos).Error; err != nil {
+		return nil, errs.WrapInfrastructureError("failed to get population entries", err)
+	}
+
+	entries := make([]kernel.PopulationEntry, len(dtos))
+	for i, dto := range dtos {
+		entry, err := DtoToDomain(dto)
+		if err != nil {
+			return nil, errs.WrapInfrastructureError("failed to convert dto to domain", err)
+		}
+		entries[i] = entry
+	}
+
+	return entries, nil
 }

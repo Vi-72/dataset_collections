@@ -2,6 +2,8 @@ package main
 
 import (
 	"database/sql"
+	"dataset-collections/internal/adapters/out/postgres/importjobrepo"
+	"dataset-collections/internal/adapters/out/postgres/populationrepo"
 	"dataset-collections/internal/pkg/errs"
 	"dataset-collections/internal/web"
 	"fmt"
@@ -14,6 +16,7 @@ import (
 	"strings"
 
 	"dataset-collections/cmd"
+	_ "github.com/lib/pq"
 
 	"gorm.io/driver/postgres"
 )
@@ -39,6 +42,7 @@ func main() {
 		configs.DbName,
 		configs.DbSslMode)
 	gormDb := mustGormOpen(connectionString)
+	mustAutoMigrate(gormDb)
 
 	compositionRoot := cmd.NewCompositionRoot(
 		configs,
@@ -152,4 +156,16 @@ func mustGormOpen(connectionString string) *gorm.DB {
 		log.Fatalf("connection to postgres through gorm\n: %s", err)
 	}
 	return pgGorm
+}
+
+func mustAutoMigrate(db *gorm.DB) {
+	err := db.AutoMigrate(&populationrepo.PopulationDTO{})
+	if err != nil {
+		log.Fatalf("Ошибка миграции PopulationDTO: %v", err)
+	}
+
+	err = db.AutoMigrate(&importjobrepo.ImportJobDTO{})
+	if err != nil {
+		log.Fatalf("Ошибка миграции ImportJobDTO: %v", err)
+	}
 }

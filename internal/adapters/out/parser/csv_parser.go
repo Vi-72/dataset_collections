@@ -82,11 +82,14 @@ func (p *DataHubCSVParser) parseRow(colMap map[string]int, row []string) (kernel
 		return kernel.PopulationEntry{}, fmt.Errorf("invalid year '%s': %w", yearStr, err)
 	}
 
-	// Парсим население
-	population, err := strconv.ParseInt(valueStr, 10, 64)
+	// Парсим население (может содержать десятичные числа)
+	populationFloat, err := strconv.ParseFloat(valueStr, 64)
 	if err != nil {
 		return kernel.PopulationEntry{}, fmt.Errorf("invalid population value '%s': %w", valueStr, err)
 	}
+
+	// Округляем до целого числа
+	population := int64(populationFloat)
 
 	// Создаем доменные объекты
 	countryCode, err := kernel.NewCountryCode(countryCodeStr)
